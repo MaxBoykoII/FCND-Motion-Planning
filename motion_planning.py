@@ -117,15 +117,29 @@ class MotionPlanning(Drone):
         TARGET_ALTITUDE = 5
         SAFETY_DISTANCE = 5
 
+        GOAL_LON = -122.397674
+        GOAL_LAT = 37.793692
+
         self.target_position[2] = TARGET_ALTITUDE
 
         # TODO: read lat0, lon0 from colliders into floating point values
+        with open('colliders.csv') as f:
+            coords_str = f.readline()
+            lat_str, lon_str = coords_str.split(',')
+
+            lon0 = float(lon_str.replace('lon0', '').strip())
+            lat0 = float(lat_str.replace('lat0', '').strip())
+
         
         # TODO: set home position to (lon0, lat0, 0)
+        self.set_home_position(lon0, lat0, 0)
 
         # TODO: retrieve current global position
+        global_position = self.global_position
  
         # TODO: convert to current local position using global_to_local()
+        local_position = global_to_local(global_position, self.global_home)
+        north, east, _ = np.around(local_position)
         
         print('global home {0}, position {1}, local position {2}'.format(self.global_home, self.global_position,
                                                                          self.local_position))
@@ -136,20 +150,24 @@ class MotionPlanning(Drone):
         grid, north_offset, east_offset = create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
         print("North offset = {0}, east offset = {1}".format(north_offset, east_offset))
         # Define starting point on the grid (this is just grid center)
-        grid_start = (-north_offset, -east_offset)
-        # TODO: convert start position to current position rather than map center
+        grid_center = (-north_offset, -east_offset)
+        grid_start = (int(north) - north_offset, int(east) - east_offset)
         
         # Set goal as some arbitrary position on the grid
-        grid_goal = (-north_offset + 10, -east_offset + 10)
-        # TODO: adapt to set goal as latitude / longitude position and convert
+        goal_local_position = global_to_local((GOAL_LON, GOAL_LAT, 0), self.global_home)
+        goal_north, goal_east, _ = np.around(goal_local_position)
 
+        grid_goal = (int(goal_north) - north_offset, int(goal_east) - east_offset)
         # Run A* to find a path from start to goal
         # TODO: add diagonal motions with a cost of sqrt(2) to your A* implementation
         # or move to a different search space such as a graph (not done here)
         print('Local Start and Goal: ', grid_start, grid_goal)
+        print('Starting a_star......')
         path, _ = a_star(grid, heuristic, grid_start, grid_goal)
+        print('a_star complete....')
         # TODO: prune path to minimize number of waypoints
         # TODO (if you're feeling ambitious): Try a different approach altogether!
+
 
         # Convert path to waypoints
         waypoints = [[p[0] + north_offset, p[1] + east_offset, TARGET_ALTITUDE, 0] for p in path]
