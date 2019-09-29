@@ -5,7 +5,8 @@ from enum import Enum, auto
 
 import numpy as np
 
-from planning_utils import a_star, heuristic, create_grid
+from planning_utils import a_star, heuristic, create_grid, skeletonize_grid, find_start_goal
+from skimage.util import invert
 from path_utils import prune_path
 from udacidrone import Drone
 from udacidrone.connection import MavlinkConnection
@@ -150,6 +151,10 @@ class MotionPlanning(Drone):
         # Define a grid for a particular altitude and safety margin around obstacles
         grid, north_offset, east_offset = create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
         print("North offset = {0}, east offset = {1}".format(north_offset, east_offset))
+
+        # Skeletonize the grid
+        skeleton = skeletonize_grid(grid)
+
         # Define starting point on the grid (this is just grid center)
         grid_center = (-north_offset, -east_offset)
         grid_start = (int(north) - north_offset, int(east) - east_offset)
@@ -159,20 +164,31 @@ class MotionPlanning(Drone):
         goal_north, goal_east, _ = np.around(goal_local_position)
 
         grid_goal = (int(goal_north) - north_offset, int(goal_east) - east_offset)
+
+        # Find the closest  points on the skeleton to the starting and goal states
+        skel_start, skel_goal = find_start_goal(skeleton, grid_start, grid_goal)
+
         # Run A* to find a path from start to goal
         # TODO: add diagonal motions with a cost of sqrt(2) to your A* implementation
         # or move to a different search space such as a graph (not done here)
         print('Local Start and Goal: ', grid_start, grid_goal)
+        print('Skeleton start and goal:', skel_start, skel_goal)
+
         print('Starting a_star......')
-        path, _ = a_star(grid, heuristic, grid_start, grid_goal)
+        path, _ = a_star(invert(skeleton), heuristic, skel_start, skel_goal)
+        path = [grid_start] + path + [grid_goal]
         print('a_star complete....')
+        print('unpruned way points...', len(path))
         # TODO: prune path to minimize number of waypoints
         path = prune_path(path)
+        print('length of pruned path', len(path))
+        print('path', path)
         # TODO (if you're feeling ambitious): Try a different approach altogether!
 
 
         # Convert path to waypoints
         waypoints = [[p[0] + north_offset, p[1] + east_offset, TARGET_ALTITUDE, 0] for p in path]
+        print('here are the waypoints', waypoints)
         # Set self.waypoints
         self.waypoints = waypoints
         # TODO: send waypoints to sim (this is just for visualization of waypoints)

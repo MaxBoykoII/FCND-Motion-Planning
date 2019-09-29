@@ -1,6 +1,8 @@
 from enum import Enum
 from queue import PriorityQueue
 import numpy as np
+from skimage.morphology import medial_axis
+from skimage.util import invert
 
 
 def create_grid(data, drone_altitude, safety_distance):
@@ -41,6 +43,31 @@ def create_grid(data, drone_altitude, safety_distance):
     print('north_min', int(north_min), 'north_size', int(north_size), 'north_max', int(north_max))
 
     return grid, int(north_min), int(east_min)
+
+def skeletonize_grid(grid):
+    """
+    Returns the 'skeleton' obtained by applying the
+    medial axis transform to a binary image
+    """
+    print('shape of grid non-zero nodes', np.transpose(grid.nonzero()).shape)
+    skeleton = medial_axis(invert(grid)).astype(int)
+
+    return skeleton
+
+def find_start_goal(skel, start, goal):
+    """
+    Returns the points on the skeleton closest
+    to the start and goal states
+    """
+
+    nodes = np.transpose(skel.nonzero())
+
+    print('shape of non-zero nodes', nodes.shape)
+    
+    near_start = nodes[np.argmin(np.linalg.norm(nodes - np.array(start), axis=1))]
+    near_goal = nodes[np.argmin(np.linalg.norm(nodes - np.array(goal), axis=1))]
+    
+    return tuple(near_start), tuple(near_goal)
 
 
 # Assume all actions cost the same.
